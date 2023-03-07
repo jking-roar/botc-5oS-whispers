@@ -30,7 +30,12 @@ public class TallyDifference {
                 "kris - frank: 1\n" +
                 "bob - edward: 1\n";
 
-        doCounts(firstTally, secondTally);
+
+        System.out.println(whisperDiff(firstTally, secondTally));
+    }
+
+    public static String whisperDiff(String firstTally, String secondTally) {
+        return diffAsString(doCounts(firstTally, secondTally));
     }
 
 
@@ -50,6 +55,10 @@ public class TallyDifference {
             if (d > 0) diff.put(playerPair, d);
         }
 
+        return diff;
+    }
+
+    public static String diffAsString(Map<WhisperTally.PlayerPair, Integer> diff) {
         ArrayList<Map.Entry<WhisperTally.PlayerPair, Integer>> entries = new ArrayList<>(diff.entrySet());
         Collections.sort(entries, new Comparator<Map.Entry<WhisperTally.PlayerPair, Integer>>() {
             @Override
@@ -58,9 +67,14 @@ public class TallyDifference {
             }
         });
 
+        StringBuilder sb = new StringBuilder();
         for (Map.Entry<WhisperTally.PlayerPair, Integer> entry : entries) {
-            System.out.println(entry.getKey() + ": " + entry.getValue());
+            String out = entry.getKey() + ": " + entry.getValue();
+            sb.append(out);
+            sb.append('\n');
         }
-        return diff;
+        String asString = sb.toString();
+        return asString;
     }
+
 }
