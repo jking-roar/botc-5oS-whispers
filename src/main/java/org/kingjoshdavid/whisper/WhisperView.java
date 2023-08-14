@@ -8,10 +8,7 @@ import java.awt.geom.Ellipse2D;
 import java.awt.geom.Line2D;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -19,10 +16,11 @@ public class WhisperView {
 
     public static final Pattern WHISPER_PATTERN = Pattern.compile("(.*) - (.*): (\\d+)");
     public static final int INITIAL_SIZE = 600;
-    public static final Color COLOR_ONE = new Color(0, 0, 255);
+    public static final Color COLOR_ONE = new Color(0, 0, 255, 255);
     public static final Color COLOR_TWO = new Color(0, 255, 0, 128);
-    public static final Color COLOR_THREE = new Color(Color.ORANGE.getRed(), Color.ORANGE.getGreen(), Color.ORANGE.getBlue(), 128);
-    public static final Color COLOR_FOUR = new Color(Color.GRAY.getRed(), Color.GRAY.getGreen(), Color.GRAY.getBlue(), 128);
+    public static final Color COLOR_THREE = new Color(255, 200, 0, 128);
+    public static final Color COLOR_FOUR = new Color(128, 128, 128, 128);
+
     private TownSquareWhispersPanel drawingArea;
 
     public WhisperView(String townSquare, String whisperLog, String descriptor, Map<String, String> namePreferences) {
@@ -83,7 +81,17 @@ public class WhisperView {
         return viewAndControls;
     }
 
+    public void setExperimentalMode(boolean b) {
+        drawingArea.setExperimentMode(b);
+    }
+
     private static class TownSquareWhispersPanel extends JPanel implements ChangeListener {
+        private boolean experiment;
+
+        public void setExperimentMode(boolean b) {
+            experiment = b;
+        }
+
         static class ColoredMap {
             public final Map<PlayerPair, Integer> playerPlayerWeights;
             public final Color color;
@@ -113,7 +121,10 @@ public class WhisperView {
         protected void paintComponent(Graphics og) {
             super.paintComponent(og);
             Graphics2D g = (Graphics2D) og;
-            g.setPaint(Color.WHITE);
+            if(experiment)
+                g.setPaint(interpolateColor(Color.WHITE, Color.LIGHT_GRAY, 0.125));
+            else
+                g.setPaint(Color.WHITE);
             double max_x = getWidth();
             double max_y = getHeight();
 
@@ -158,8 +169,26 @@ public class WhisperView {
                 playerCenters.put(names[i1], playerCenter);
             }
 
+            Color low = withAlpha(Color.BLACK, 0.5f);
+            Color high = withAlpha(Color.GREEN, 0.5f);
+            int min = 5000;
+            int max = 0;
             for (ColoredMap coloredMap : playerPlayerWeightList) {
-                g.setPaint(coloredMap.color);
+                Collection<Integer> values = coloredMap.playerPlayerWeights.values();
+                for (Integer c : values) {
+                    if(c > max) {
+                        max = c;
+                    }
+                    if(c < min) {
+                        min = c;
+                    }
+                }
+            }
+
+
+            for (ColoredMap coloredMap : playerPlayerWeightList) {
+                Color lineColor = coloredMap.color;
+                g.setPaint(lineColor);
                 Map<PlayerPair, Integer> playerPlayerWeights = coloredMap.playerPlayerWeights;
                 for (PlayerPair playerPair : playerPlayerWeights.keySet()) {
                     String a = playerPair.playerA;
@@ -196,8 +225,12 @@ public class WhisperView {
 
                         g.drawString(s, (float) (pCenter.x - sw / 2.0), (float) (pCenter.y + lineHeight * 0.25));
 
-                        g.setPaint(coloredMap.color);
                     } else {
+                        if(experiment) {
+                            lineColor = interpolateColor(low, high, determineProgress(min, number, max));
+                        }
+                        g.setPaint(lineColor);
+
                         for (int i = 0; i < number; i++) {
                             g.draw(new Line2D.Double(roughly(aCenter.x, jitter), roughly(aCenter.y, jitter), roughly(bCenter.x, jitter), roughly(bCenter.y, jitter)));
                         }
@@ -205,6 +238,28 @@ public class WhisperView {
                 }
             }
 
+        }
+
+        private Color withAlpha(Color color, float a) {
+            float[] rgb = color.getRGBColorComponents(new float[3]);
+            return new Color(rgb[0], rgb[1], rgb[2], a);
+        }
+
+        private double determineProgress(double min, double number, double max) {
+            double logBottom = Math.log(min);
+            double logTop = Math.log(max);
+            double logMid = Math.log(number);
+            return (logMid-logBottom) / (logTop - logBottom);
+//            return (number-min) / (max - min);
+        }
+
+        static Color interpolateColor(Color a, Color b, double d) {
+            int re = (int) (a.getRed() + d * (b.getRed() - a.getRed()));
+            int gr = (int) (a.getGreen() + d * (b.getGreen() - a.getGreen()));
+            int bl = (int) (a.getBlue() + d * (b.getBlue() - a.getBlue()));
+            int al = (int) (a.getAlpha() + d * (b.getAlpha() - a.getAlpha()));
+
+            return new Color(re, gr, bl, al);
         }
 
         private int stringWidth(Graphics2D g, String displayedName) {
@@ -252,8 +307,9 @@ public class WhisperView {
         }
     }
 
-    void addWhispers(String whispers, Color color) {
+    WhisperView addWhispers(String whispers, Color color) {
         drawingArea.addWhispers(computeWhisperMap(whispers), color);
+        return this;
     }
 
 
